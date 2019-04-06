@@ -23,4 +23,5 @@ def get_models(hparams, names=None):
   elif len(hparams.models) == 1:
     return _MODELS[hparams.models[0]](hparams)
   else:
-    return {name: _MODELS[name](hparams) for name in hparams.models}
+    print(_MODELS)
+    return {name: _MODELS[hparams.models[name]](hparams) for name in hparams.models.keys()}

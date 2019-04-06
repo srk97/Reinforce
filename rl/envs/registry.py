@@ -23,13 +23,15 @@ def get_gym_ids():
 
 
 def get_env(hparams):
+  print(_ENVS)
   gym_ids = get_gym_ids()
   if hparams.env in _ENVS:
     return _ENVS[hparams.env](hparams)
   elif hparams.env in gym_ids:
     return _ENVS['GymEnv'](hparams)
   else:
-    raise Exception("Environment with name %s cannot not be found" % env_name)
+    raise Exception(
+        "Environment with name %s cannot not be found" % hparams.env)
 
 
 def get_reward_augmentation(name):

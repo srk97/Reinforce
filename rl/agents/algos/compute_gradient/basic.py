@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from .registry import register
+from .utils import clip_grad_norm
 
 
 @register
@@ -34,16 +35,39 @@ def ppo(logits, actions, advantage, hparams, var_list):
   surrogate_objective = tf.minimum(clipped_ratio * advantage, ratio * advantage)
 
   actor_loss = -tf.reduce_mean(surrogate_objective)
+  actor_train_op = tf.train.AdamOptimizer(hparams.actor_lr)
+  critic_train_op = tf.train.AdamOptimizer(hparams.critic_lr)
+  cnn_train_op = tf.no_op()
 
-  actor_train_op = tf.train.AdamOptimizer(hparams.actor_lr).minimize(
-      actor_loss, var_list=var_list['actor_vars'])
-  critic_train_op = tf.train.AdamOptimizer(hparams.critic_lr).minimize(
-      critic_loss, var_list=var_list['critic_vars'])
+  if hparams.pixel_input:
+    cnn_train_op = tf.train.AdamOptimizer(hparams.critic_lr)
+    a_grads = actor_train_op.compute_gradients(
+        actor_loss, var_list=var_list['state_processor_vars'])
+    c_grads = critic_train_op.compute_gradients(
+        critic_loss, var_list=var_list['state_processor_vars'])
+    final_grads = [((grad_a + grad_c) / 2, var)
+                   for (grad_a, var), (grad_c, _) in zip(a_grads, c_grads)]
+    cnn_loss = (actor_loss + critic_loss) / 2               
+    cnn_train_op = cnn_train_op.minimize(cnn_loss, var_list=var_list['state_processor_vars'])
+
+  if hparams.clip_grad_norm:
+    actor_train_op = clip_grad_norm(actor_train_op, actor_loss,
+                                    hparams.max_grad_norm,
+                                    var_list['actor_vars'])
+    critic_train_op = clip_grad_norm(critic_train_op, critic_loss,
+                                     hparams.max_grad_norm,
+                                     var_list['critic_vars'])
+  else:
+    actor_train_op = actor_train_op.minimize(
+        actor_loss, var_list=var_list['actor_vars'])
+    critic_train_op = critic_train_op.minimize(
+        critic_loss, var_list=var_list['critic_vars'])
 
   return {
       "a_loss": actor_loss,
       "c_loss": critic_loss
   }, {
       "a_train_op": actor_train_op,
-      "c_train_op": critic_train_op
+      "c_train_op": critic_train_op,
+      "cnn_train_op": cnn_train_op
   }

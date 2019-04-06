@@ -102,7 +102,11 @@ class ProportionalMemory:
   https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
   """
 
-  def __init__(self, capacity, priority_control=0, priority_compensation=1):
+  def __init__(self,
+               capacity,
+               priority_control=0,
+               priority_compensation=1,
+               use_recurrent_states=False):
     """
     Args:
       capacity: Maximum capacity of the memory
@@ -118,14 +122,37 @@ class ProportionalMemory:
     self.priority_compensation = priority_compensation  # beta in paper
     self.tree = SumTree(capacity)
     self.eps = 1e-10  # small value used to ensure priorities are greater than 0
-    self.MemoryEntry = namedtuple(
-        "MemoryEntry",
-        ["last_state", "action", "reward", "discount", "done", "state"])
+    self.use_recurrent_states = use_recurrent_states
+    if self.use_recurrent_states:
+      self.MemoryEntry = namedtuple("MemoryEntry", [
+          "last_state", "last_recurrent_state", "action", "reward", "discount",
+          "done", "state", "recurrent_state", "last_point_goal", "point_goal"
+      ])
+    else:
+      self.MemoryEntry = namedtuple(
+          "MemoryEntry",
+          ["last_state", "action", "reward", "discount", "done", "state"])
 
-  def add_samples(self, last_states, actions, rewards, discounts, done, states):
+  def add_samples(self,
+                  last_states,
+                  actions,
+                  rewards,
+                  discounts,
+                  done,
+                  states,
+                  last_recurrent_states=None,
+                  recurrent_states=None,
+                  last_point_goal=None,
+                  point_goal=None):
     for i in range(len(last_states)):
-      memory_entry = self.MemoryEntry(last_states[i], actions[i], rewards[i],
-                                      discounts[i], done[i], states[i])
+      if self.use_recurrent_states:
+        memory_entry = self.MemoryEntry(
+            last_states[i], last_recurrent_states[i], actions[i], rewards[i],
+            discounts[i], done[i], states[i], recurrent_states[i],
+            last_point_goal[i], point_goal[i])
+      else:
+        memory_entry = self.MemoryEntry(last_states[i], actions[i], rewards[i],
+                                        discounts[i], done[i], states[i])
       priority = self.eps + (1 if self.tree.size == 0 else self.tree.max)
       self.tree.add(memory_entry, priority)
 
@@ -158,6 +185,15 @@ class ProportionalMemory:
     rewards = np.array([s.reward for s in samples])
     done = np.array([s.done for s in samples])
     states = np.array([s.state for s in samples])
+
+    if self.use_recurrent_states:
+      last_recurrent_states = np.array(
+          [s.last_recurrent_state for s in samples])
+      recurrent_states = np.array([s.recurrent_state for s in samples])
+      last_point_goals = np.array([s.last_point_goal for s in samples])
+      point_goals = np.array([s.point_goal for s in samples])
+
+      return indices, weights, last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
 
     return indices, weights, last_states, actions, rewards, done, states
 

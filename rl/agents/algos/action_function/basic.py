@@ -30,8 +30,11 @@ def non_uniform_random_action(hparams, distribution):
 
 @register
 def uniform_random_action(hparams, distribution):
-  h = np.random.uniform(size=distribution.shape)
-  return np.argmax(distribution - np.log(-np.log(h)))
+  if hparams.mode=="test":
+    return max_action(hparams, distribution)
+  else:  
+    h = np.random.uniform(size=distribution.shape)
+    return np.argmax(distribution - np.log(-np.log(h)))
 
 
 @register

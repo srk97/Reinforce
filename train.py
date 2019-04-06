@@ -7,7 +7,7 @@ from gym.wrappers import Monitor
 from rl.utils import flags
 from rl.envs.registry import get_env
 from rl.utils.checkpoint import Checkpoint
-from rl.utils.logger import init_logger
+from rl.utils.logger import init_logger, log_scalar
 from rl.models.registry import get_models
 from rl.hparams.registry import get_hparams
 from rl.agents.registry import get_agent, get_memory
@@ -30,6 +30,8 @@ def init_flags():
   tf.flags.DEFINE_integer("copies", 1,
                           "Number of independent training/testing runs to do.")
   tf.flags.DEFINE_boolean("render", False, "Render game play")
+  tf.flags.DEFINE_integer("test_every", 100, "Test interval during training")
+  tf.flags.DEFINE_integer("test_episodes", 10, "Number of episodes for testing")
   tf.flags.DEFINE_boolean("record_video", False, "Record game play")
 
 
@@ -41,10 +43,11 @@ def init_random_seeds(hparams):
 
 def init_hparams(FLAGS):
   flags.validate_flags(FLAGS)
-
   tf.reset_default_graph()
 
   hparams = get_hparams(FLAGS.hparams)
+  hparams.test_every = FLAGS.test_every
+  hparams.test_episodes = FLAGS.test_episodes
   hparams = hparams.parse(FLAGS.hparam_override)
   hparams = flags.update_hparams(FLAGS, hparams)
 
@@ -63,6 +66,28 @@ def log_start_of_run(FLAGS, hparams, run):
       (run, FLAGS.hparams, hparams.env, hparams.agent, hparams.output_dir))
 
 
+def test(env, agent, hparams):
+  rewards = []
+  restored_action_fn = hparams.action_function
+  hparams.mode = "test"
+
+  for i in range(hparams.test_episodes):
+    recurrent_state = np.zeros((512,))
+    state = env.reset()
+    done = False
+
+    while not done:
+      if type(env).__name__ == 'NavRLEnv':
+        action, recurrent_state = agent.act(state, recurrent_state[None, :])
+      else:
+        action = agent.act(state)
+      state, reward, done, info = env.step(action)
+      rewards.append(reward)
+
+  log_scalar('rewards_test', np.sum(rewards) / hparams.test_episodes)
+  hparams.mode = "train"
+
+
 def _run(FLAGS):
   hparams = init_hparams(FLAGS)
 
@@ -76,7 +101,10 @@ def _run(FLAGS):
       init_logger(hparams)
       env = get_env(hparams)
       models = get_models(hparams)
-      memory = get_memory(hparams)
+      if type(env).__name__ == 'NavRLEnv':
+        memory = get_memory(hparams, use_recurrent_states=True)
+      else:
+        memory = get_memory(hparams)
       agent = get_agent(sess, models, env, memory, hparams)
       checkpoint = Checkpoint(sess, hparams, agent)
 
@@ -96,6 +124,7 @@ def _run(FLAGS):
 
         state = env.reset()
         done_ = False
+        recurrent_state = np.zeros((512,))
 
         # run until game is finished
         while not done_:
@@ -106,17 +135,29 @@ def _run(FLAGS):
           done = []
           states = []
 
+          last_recurrent_states = None
+          recurrent_states = None
+
+          if type(env).__name__ == 'NavRLEnv':
+            last_recurrent_states = []
+            recurrent_states = []
           # run n steps
           for _ in range(hparams.n_steps):
-
             if hparams.render:
               env.render()
 
             last_state = state
+            if type(env).__name__ == 'NavRLEnv':
+              last_recurrent_state = recurrent_state
+              action, recurrent_state = agent.act(state,
+                                                  last_recurrent_state[None, :])
+              last_recurrent_states.append(last_recurrent_state)
+              recurrent_states.append(recurrent_state)
+            else:
+              action = agent.act(state)
 
-            action = agent.act(state)
             state, reward, done_, info = env.step(action)
-
+            #print(reward)
             last_states.append(last_state)
             actions.append(action)
             rewards.append(reward)
@@ -128,12 +169,15 @@ def _run(FLAGS):
             if done_:
               break
 
-          agent.observe(last_states, actions, rewards, done, states)
+          agent.observe(last_states, actions, rewards, done, states,
+                        last_recurrent_states, recurrent_states)
 
         hparams.episode += 1
-
         if hparams.episode % hparams.save_every == 0 or hparams.episode == max_episodes:
           checkpoint.save()
+
+        if hparams.episode % hparams.test_every == 0:
+          test(env, agent, hparams)
 
       env.close()
 
