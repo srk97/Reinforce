@@ -197,4 +197,4 @@ class PPO(Agent):
             })
         log_scalar("critic_loss", c_loss)
 
-    self._memory.clear()
+      self._memory.clear()

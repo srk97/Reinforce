@@ -205,3 +205,117 @@ class ProportionalMemory:
 
   def clear(self):
     self.tree.clear()
+
+
+class RolloutMemory:
+
+  def __init__(self,
+               capacity,
+               priority_control=0,
+               priority_compensation=1,
+               use_recurrent_states=False):
+    """
+    Args:
+      capacity: Maximum capacity of the memory
+      priority_control: Scalar applied as exponent to priorities. alpha in paper
+                        0 corresponds to the uniform case (regular memory)
+      priority_compensation: Scalar applied as exponent to IS weights. beta in paper.
+                             1 fully compensates for non-uniform sampling probabilities
+    """
+    assert 0 <= priority_control <= 1
+    assert 0 <= priority_compensation <= 1
+    self.capacity = capacity
+    self.priority_control = priority_control  # corresponds to alpha in paper
+    self.priority_compensation = priority_compensation  # beta in paper
+    self.tree = SumTree(capacity)
+    self.eps = 1e-10  # small value used to ensure priorities are greater than 0
+    self.use_recurrent_states = use_recurrent_states
+    if self.use_recurrent_states:
+      self.MemoryEntry = namedtuple("MemoryEntry", [
+          "last_state", "last_recurrent_state", "action", "reward", "discount",
+          "done", "state", "recurrent_state", "last_point_goal", "point_goal"
+      ])
+    else:
+      self.MemoryEntry = namedtuple(
+          "MemoryEntry",
+          ["last_state", "action", "reward", "discount", "done", "state"])
+
+  def add_samples(self,
+                  last_states,
+                  actions,
+                  rewards,
+                  discounts,
+                  done,
+                  states,
+                  last_recurrent_states=None,
+                  recurrent_states=None,
+                  last_point_goal=None,
+                  point_goal=None):
+
+    last_states = np.stack(tuple(last_states))
+    states = np.stack(tuple(states))
+    last_recurrent_states = np.stack(tuple(last_recurrent_states))
+    recurrent_states = np.stack(tuple(recurrent_states))
+    actions = np.stack(tuple(actions))
+    last_point_goal = np.stack(tuple(last_point_goal))
+    point_goal = np.stack(tuple(point_goal))
+    rewards = np.stack(tuple(rewards))
+    discounts = np.stack(tuple(discounts))
+    done = np.stack(tuple(done))
+
+    if self.use_recurrent_states:
+      memory_entry = self.MemoryEntry(
+          last_states, last_recurrent_states, actions, rewards, discounts, done,
+          states, recurrent_states, last_point_goal, point_goal)
+    priority = self.eps + (1 if self.tree.size == 0 else self.tree.max)
+    self.tree.add(memory_entry, priority)
+
+  def __len__(self):
+    return len(self.tree)
+
+  def sample(self, batch_size=None):
+    if batch_size == None:
+      indices = list(range(self.tree.size))
+      samples = self.tree.data[:self.tree.size]
+      weights = self.tree.leaves
+    else:
+      priorities = self.tree.sum * np.random.rand(batch_size)
+      samples, indices, weights = [], [], []
+      for p in priorities:
+        index, weight, sample = self.tree.get(p)
+        indices.append(index)
+        weights.append(weight)
+        samples.append(sample)
+
+    indices = np.array(indices)
+    # Normalize importance sampling weights, to only scale gradient update downwards
+    max_weight = ((self.tree.sum / self.tree.min) /
+                  self.tree.size)**self.priority_compensation
+    weights = (((self.tree.sum / np.array(weights)) / self.tree.size)**
+               self.priority_compensation) / max_weight
+
+    last_states = np.array([s.last_state for s in samples])
+    actions = np.array([s.action for s in samples])
+    rewards = np.array([s.reward for s in samples])
+    done = np.array([s.done for s in samples])
+    states = np.array([s.state for s in samples])
+
+    if self.use_recurrent_states:
+      last_recurrent_states = np.array(
+          [s.last_recurrent_state for s in samples])
+      recurrent_states = np.array([s.recurrent_state for s in samples])
+      last_point_goals = np.array([s.last_point_goal for s in samples])
+      point_goals = np.array([s.point_goal for s in samples])
+
+      return indices, weights, last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
+
+    return indices, weights, last_states, actions, rewards, done, states
+
+  # Update sample priorities
+  def update(self, indices, priorities):
+    for i, p in zip(indices, priorities):
+      p = self.eps + p
+      self.tree.update(i, p**self.priority_control)
+
+  def clear(self):
+    self.tree.clear()
