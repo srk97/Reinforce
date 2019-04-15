@@ -68,7 +68,6 @@ def log_start_of_run(FLAGS, hparams, run):
 
 def test(env, agent, hparams):
   rewards = []
-  restored_action_fn = hparams.action_function
   hparams.mode = "test"
 
   for i in range(hparams.test_episodes):

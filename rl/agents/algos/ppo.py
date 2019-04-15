@@ -146,8 +146,7 @@ class PPO(Agent):
 
   def update(self):
 
-    if self._hparams.training and self._memory.__len__(
-    ) >= self._hparams.batch_size:
+    if self._hparams.training:
       pi_vars, oldpi_vars = self._actor.trainable_weights, self._old_policy.trainable_weights
       pi_vars = sorted(pi_vars, key=lambda v: v.name)
       oldpi_vars = sorted(oldpi_vars, key=lambda v: v.name)
@@ -161,6 +160,9 @@ class PPO(Agent):
       if type(self._env).__name__ == 'NavRLEnv':
         _, _, states, recurrent_states, actions, rewards, _, _, _, point_goals, _ = self._memory.sample(
         )
+        print("Update shapes:")
+        print("\tstates: ", states.shape)
+        print("\trecurrent states: ", recurrent_states.shape)
         a_feed_dict = {
             self.states: states,
             self.actions: actions,
