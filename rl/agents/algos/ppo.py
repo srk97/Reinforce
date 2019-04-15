@@ -164,11 +164,11 @@ class PPO(Agent):
         print("\tstates: ", states.shape)
         print("\trecurrent states: ", recurrent_states.shape)
         a_feed_dict = {
-            self.states: states,
-            self.actions: actions,
-            self.rewards: rewards,
-            self.recurrent_states: recurrent_states,
-            self.point_goal: point_goals
+            self.states: states[0],
+            self.actions: actions[0],
+            self.rewards: rewards[0],
+            self.recurrent_states: recurrent_states[0],
+            self.point_goal: point_goals[0]
         }
       else:
         _, _, states, actions, rewards, _, _ = self._memory.sample()
@@ -193,9 +193,9 @@ class PPO(Agent):
         c_loss, _ = self._sess.run(
             [self.losses['c_loss'], self.train_ops['c_train_op']],
             feed_dict={
-                self.states: states,
-                self.actions: actions,
-                self.rewards: rewards,
+                self.states: states[0],
+                self.actions: actions[0],
+                self.rewards: rewards[0],
             })
         log_scalar("critic_loss", c_loss)
 

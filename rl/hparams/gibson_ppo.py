@@ -12,8 +12,8 @@ def ppo():
   hps.n_steps = 128
   hps.max_grad_norm = 0.5
   hps.value_loss_coef = 0.5
-  hps.actor_lr = 1e-5
-  hps.critic_lr = 1e-5
+  hps.actor_lr = 2.5e-5
+  hps.critic_lr = 2.5e-5
   hps.batch_size = 1
   hps.hidden_size = 512
   hps.gamma = 0.99
