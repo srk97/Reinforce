@@ -80,14 +80,15 @@ class Gibson_PPO(Agent):
 
     if type(self._env).__name__ == 'NavRLEnv':
       self.point_goal = tf.placeholder(tf.float32, [None, 2], name='pointgoals')
-      self.recurrent_states = tf.placeholder(
-          tf.float32, [None, self._hparams.hidden_size],
-          name='recurrent_states')
-    self.states = tf.placeholder(
-        tf.float32, [None] + self._hparams.state_shape, name="states")
+      self.recurrent_states = tf.placeholder(tf.float32,
+                                             [None, self._hparams.hidden_size],
+                                             name='recurrent_states')
+    self.states = tf.placeholder(tf.float32, [None] + self._hparams.state_shape,
+                                 name="states")
     self.rewards = tf.placeholder(tf.float32, [None], name="rewards")
-    self.actions = tf.placeholder(
-        tf.int32, [None, self._hparams.num_actions], name="actions")
+    self.actions = tf.placeholder(tf.int32, [None, self._hparams.num_actions],
+                                  name="actions")
+    self.masks = tf.placeholder(tf.float32, shape=[None], name="masks")
 
     processed_states = self.process_states(self.states)
 
@@ -114,8 +115,9 @@ class Gibson_PPO(Agent):
       actor_states = tf.concat([processed_states, self.point_goal], axis=1)
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states)
-      _, _, self.oldpi_logits = self._old_policy(
-          actor_states, self.recurrent_states, scope="old_policy")
+      _, _, self.oldpi_logits = self._old_policy(actor_states,
+                                                 self.recurrent_states,
+                                                 scope="old_policy")
     else:
       actor_states = processed_states
       self.logits = self._actor(processed_states)
@@ -164,14 +166,14 @@ class Gibson_PPO(Agent):
         print("\tstates: ", states.shape)
         print("\trecurrent states: ", recurrent_states.shape)
         a_feed_dict = {
-            self.states: states[0],
-            self.actions: actions[0],
-            self.rewards: rewards[0],
-            self.recurrent_states: recurrent_states[0],
-            self.point_goal: point_goals[0]
+            self.states: states,
+            self.actions: actions,
+            self.rewards: rewards,
+            self.recurrent_states: recurrent_states,
+            self.point_goal: point_goals
         }
       else:
-        _, _, states, actions, rewards, _, _ = self._memory.sample()
+        _, _, states, actions, rewards, done, _ = self._memory.sample()
         a_feed_dict = {
             self.states: states,
             self.actions: actions,
@@ -182,21 +184,20 @@ class Gibson_PPO(Agent):
         _ = self._sess.run([self.train_ops['cnn_train_op']],
                            feed_dict=a_feed_dict)
 
-      for _ in range(self._hparams.num_actor_steps):
+      for _ in range(self._hparams.num_update_steps):
         a_loss, _ = self._sess.run(
             [self.losses['a_loss'], self.train_ops['a_train_op']],
             feed_dict=a_feed_dict)
 
-        log_scalar("actor_loss", a_loss)
-
-      for _ in range(self._hparams.num_critic_steps):
         c_loss, _ = self._sess.run(
             [self.losses['c_loss'], self.train_ops['c_train_op']],
             feed_dict={
-                self.states: states[0],
-                self.actions: actions[0],
-                self.rewards: rewards[0],
+                self.states: states,
+                self.actions: actions,
+                self.rewards: rewards,
             })
+
+        log_scalar("actor_loss", a_loss)
         log_scalar("critic_loss", c_loss)
 
       self._memory.clear()

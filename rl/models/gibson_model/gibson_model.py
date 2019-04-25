@@ -9,21 +9,18 @@ class GibsonPixelProcessor(Model):
 
   def __init__(self, hparams):
     super().__init__(hparams)
-    self.layer1 = tf.layers.Conv2D(
-        filters=32,
-        kernel_size=([hparams.kernel_sizes[0]] * 2),
-        strides=([hparams.strides[0]] * 2),
-        activation=tf.nn.relu)
-    self.layer2 = tf.layers.Conv2D(
-        filters=64,
-        kernel_size=([hparams.kernel_sizes[1]] * 2),
-        strides=([hparams.strides[1]] * 2),
-        activation=tf.nn.relu)
-    self.layer3 = tf.layers.Conv2D(
-        filters=32,
-        kernel_size=([hparams.kernel_sizes[2]] * 2),
-        strides=([hparams.strides[2]] * 2),
-        activation=tf.nn.relu)
+    self.layer1 = tf.layers.Conv2D(filters=32,
+                                   kernel_size=([hparams.kernel_sizes[0]] * 2),
+                                   strides=([hparams.strides[0]] * 2),
+                                   activation=tf.nn.relu)
+    self.layer2 = tf.layers.Conv2D(filters=64,
+                                   kernel_size=([hparams.kernel_sizes[1]] * 2),
+                                   strides=([hparams.strides[1]] * 2),
+                                   activation=tf.nn.relu)
+    self.layer3 = tf.layers.Conv2D(filters=32,
+                                   kernel_size=([hparams.kernel_sizes[2]] * 2),
+                                   strides=([hparams.strides[2]] * 2),
+                                   activation=tf.nn.relu)
 
     self.layer4 = tf.layers.Flatten()
     self.layer5 = tf.layers.Dense(hparams.hidden_size, activation=tf.nn.relu)
@@ -44,12 +41,26 @@ class GibsonPPOActor(Model):
 
   def __init__(self, hparams):
     super().__init__(hparams)
-    self.layer1 = tf.keras.layers.GRU(
-        units=hparams.hidden_size, return_state=True)
+    self.layer1 = tf.keras.layers.GRU(units=hparams.hidden_size,
+                                      return_state=True)
     self.layer2 = tf.keras.layers.Dense(hparams.num_actions)
 
-  def call(self, states, hidden_states, scope="GibsonPPOActor"):
+  def call(self, states, hidden_states, masks, scope="GibsonPPOActor"):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+
+      def fn_act():
+        states = tf.expand_dims(states, axis=0)
+        hidden_states = tf.expand_dims(hidden_states, axis=0)
+        return self.layer1(states, initial_state=hidden_states)
+
+      def fn_update():
+        N = self._hparams.batch_size
+        T = self._hparams.n_steps
+
+        states = tf.reshape(states, [N, T, states.shape[1:]])
+        hidden_states = tf.expand_dims(hidden_states, 0)
+
+      cond_op = tf.cond(tf.equal(tf.shape(0), 1), fn_act, fn_update)
       states = tf.expand_dims(states, axis=0)
       rnn_out, new_hidden = self.layer1(states, initial_state=hidden_states)
       out = self.layer2(rnn_out)

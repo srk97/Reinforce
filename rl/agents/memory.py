@@ -102,11 +102,7 @@ class ProportionalMemory:
   https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
   """
 
-  def __init__(self,
-               capacity,
-               priority_control=0,
-               priority_compensation=1,
-               use_recurrent_states=False):
+  def __init__(self, capacity, priority_control=0, priority_compensation=1):
     """
     Args:
       capacity: Maximum capacity of the memory
@@ -122,37 +118,14 @@ class ProportionalMemory:
     self.priority_compensation = priority_compensation  # beta in paper
     self.tree = SumTree(capacity)
     self.eps = 1e-10  # small value used to ensure priorities are greater than 0
-    self.use_recurrent_states = use_recurrent_states
-    if self.use_recurrent_states:
-      self.MemoryEntry = namedtuple("MemoryEntry", [
-          "last_state", "last_recurrent_state", "action", "reward", "discount",
-          "done", "state", "recurrent_state", "last_point_goal", "point_goal"
-      ])
-    else:
-      self.MemoryEntry = namedtuple(
-          "MemoryEntry",
-          ["last_state", "action", "reward", "discount", "done", "state"])
+    self.MemoryEntry = namedtuple(
+        "MemoryEntry",
+        ["last_state", "action", "reward", "discount", "done", "state"])
 
-  def add_samples(self,
-                  last_states,
-                  actions,
-                  rewards,
-                  discounts,
-                  done,
-                  states,
-                  last_recurrent_states=None,
-                  recurrent_states=None,
-                  last_point_goal=None,
-                  point_goal=None):
+  def add_samples(self, last_states, actions, rewards, discounts, done, states):
     for i in range(len(last_states)):
-      if self.use_recurrent_states:
-        memory_entry = self.MemoryEntry(
-            last_states[i], last_recurrent_states[i], actions[i], rewards[i],
-            discounts[i], done[i], states[i], recurrent_states[i],
-            last_point_goal[i], point_goal[i])
-      else:
-        memory_entry = self.MemoryEntry(last_states[i], actions[i], rewards[i],
-                                        discounts[i], done[i], states[i])
+      memory_entry = self.MemoryEntry(last_states[i], actions[i], rewards[i],
+                                      discounts[i], done[i], states[i])
       priority = self.eps + (1 if self.tree.size == 0 else self.tree.max)
       self.tree.add(memory_entry, priority)
 
@@ -186,15 +159,6 @@ class ProportionalMemory:
     done = np.array([s.done for s in samples])
     states = np.array([s.state for s in samples])
 
-    if self.use_recurrent_states:
-      last_recurrent_states = np.array(
-          [s.last_recurrent_state for s in samples])
-      recurrent_states = np.array([s.recurrent_state for s in samples])
-      last_point_goals = np.array([s.last_point_goal for s in samples])
-      point_goals = np.array([s.point_goal for s in samples])
-
-      return indices, weights, last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
-
     return indices, weights, last_states, actions, rewards, done, states
 
   # Update sample priorities
@@ -209,26 +173,7 @@ class ProportionalMemory:
 
 class RolloutMemory:
 
-  def __init__(self,
-               capacity,
-               priority_control=0,
-               priority_compensation=1,
-               use_recurrent_states=False):
-    """
-    Args:
-      capacity: Maximum capacity of the memory
-      priority_control: Scalar applied as exponent to priorities. alpha in paper
-                        0 corresponds to the uniform case (regular memory)
-      priority_compensation: Scalar applied as exponent to IS weights. beta in paper.
-                             1 fully compensates for non-uniform sampling probabilities
-    """
-    assert 0 <= priority_control <= 1
-    assert 0 <= priority_compensation <= 1
-    self.capacity = capacity
-    self.priority_control = priority_control  # corresponds to alpha in paper
-    self.priority_compensation = priority_compensation  # beta in paper
-    self.tree = SumTree(capacity)
-    self.eps = 1e-10  # small value used to ensure priorities are greater than 0
+  def __init__(self, capacity, use_recurrent_states=False):
     self.use_recurrent_states = use_recurrent_states
     if self.use_recurrent_states:
       self.MemoryEntry = namedtuple("MemoryEntry", [
@@ -239,6 +184,8 @@ class RolloutMemory:
       self.MemoryEntry = namedtuple(
           "MemoryEntry",
           ["last_state", "action", "reward", "discount", "done", "state"])
+
+    self.memory = []
 
   def add_samples(self,
                   last_states,
@@ -264,58 +211,46 @@ class RolloutMemory:
     done = np.stack(tuple(done))
 
     if self.use_recurrent_states:
-      memory_entry = self.MemoryEntry(
-          last_states, last_recurrent_states, actions, rewards, discounts, done,
-          states, recurrent_states, last_point_goal, point_goal)
-    priority = self.eps + (1 if self.tree.size == 0 else self.tree.max)
-    self.tree.add(memory_entry, priority)
+      memory_entry = self.MemoryEntry(last_states, last_recurrent_states,
+                                      actions, rewards, discounts, done, states,
+                                      recurrent_states, last_point_goal,
+                                      point_goal)
+    else:
+      memory_entry = self.MemoryEntry(last_states, actions, rewards, discounts,
+                                      done, states)
+    self.memory.append(memory_entry)
 
   def __len__(self):
-    return len(self.tree)
+    return len(self.memory)
 
   def sample(self, batch_size=None):
-    if batch_size == None:
-      indices = list(range(self.tree.size))
-      samples = self.tree.data[:self.tree.size]
-      weights = self.tree.leaves
+    if batch_size is None:
+      samples = self.memory[:]
     else:
-      priorities = self.tree.sum * np.random.rand(batch_size)
-      samples, indices, weights = [], [], []
-      for p in priorities:
-        index, weight, sample = self.tree.get(p)
-        indices.append(index)
-        weights.append(weight)
-        samples.append(sample)
+      samples = self.memory[-batch_size:]
 
-    indices = np.array(indices)
-    # Normalize importance sampling weights, to only scale gradient update downwards
-    max_weight = ((self.tree.sum / self.tree.min) /
-                  self.tree.size)**self.priority_compensation
-    weights = (((self.tree.sum / np.array(weights)) / self.tree.size)**
-               self.priority_compensation) / max_weight
-
-    last_states = np.array([s.last_state for s in samples])
-    actions = np.array([s.action for s in samples])
-    rewards = np.array([s.reward for s in samples])
-    done = np.array([s.done for s in samples])
-    states = np.array([s.state for s in samples])
+    last_states = self.reshape(np.array([s.last_state for s in samples]))
+    actions = self.reshape(np.array([s.action for s in samples]))
+    rewards = self.reshape(np.array([s.reward for s in samples]))
+    done = self.reshape(np.array([s.done for s in samples]))
+    states = self.reshape(np.array([s.state for s in samples]))
 
     if self.use_recurrent_states:
-      last_recurrent_states = np.array(
-          [s.last_recurrent_state for s in samples])
-      recurrent_states = np.array([s.recurrent_state for s in samples])
-      last_point_goals = np.array([s.last_point_goal for s in samples])
-      point_goals = np.array([s.point_goal for s in samples])
+      last_recurrent_states = self.reshape(
+          np.array([s.last_recurrent_state for s in samples]))
+      recurrent_states = self.reshape(
+          np.array([s.recurrent_state for s in samples]))
+      last_point_goals = self.reshape(
+          np.array([s.last_point_goal for s in samples]))
+      point_goals = self.reshape(np.array([s.point_goal for s in samples]))
 
-      return indices, weights, last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
+      return last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
 
-    return indices, weights, last_states, actions, rewards, done, states
+    return last_states, actions, rewards, done, states
 
-  # Update sample priorities
-  def update(self, indices, priorities):
-    for i, p in zip(indices, priorities):
-      p = self.eps + p
-      self.tree.update(i, p**self.priority_control)
+  #Reshapes tensor to (batch_size*time_steps, ...)
+  def reshape(self, tensor):
+    return tensor.reshape((-1,) + tensor.shape[2:])
 
   def clear(self):
-    self.tree.clear()
+    self.memory.clear()

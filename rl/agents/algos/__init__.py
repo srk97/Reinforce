@@ -1,3 +1,4 @@
-__all__ = ['ppo']
+__all__ = ['ppo', 'gibson_ppo']
 
 from .ppo import *
+from .gibson_ppo import *
