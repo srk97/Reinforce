@@ -49,16 +49,22 @@ class GibsonPPOActor(Model):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
 
       def fn_act():
-        states = tf.expand_dims(states, axis=0)
-        hidden_states = tf.expand_dims(hidden_states, axis=0)
         return self.layer1(states, initial_state=hidden_states)
 
       def fn_update():
-        N = self._hparams.batch_size
         T = self._hparams.n_steps
 
-        states = tf.reshape(states, [N, T, states.shape[1:]])
-        hidden_states = tf.expand_dims(hidden_states, 0)
+        states = tf.reshape(states, [1, T, states.shape[1:]])
+
+        indices = tf.where(tf.equal(masks, True))
+        indices_final = tf.dynamic_partition(indices,
+                                             tf.range(indices.shape[0]),
+                                             indices.shape[0])
+
+        indices_final.insert(tf.constant([[0]], dtype=tf.int64), 0)
+                                             
+        for i in range(len(indices_final)):
+
 
       cond_op = tf.cond(tf.equal(tf.shape(0), 1), fn_act, fn_update)
       states = tf.expand_dims(states, axis=0)

@@ -14,7 +14,6 @@ def ppo():
   hps.value_loss_coef = 0.5
   hps.actor_lr = 2.5e-4
   hps.critic_lr = 2.5e-4
-  hps.batch_size = 1
   hps.hidden_size = 512
   hps.gamma = 0.99
   hps.sensors = ["RGB_SENSOR", "DEPTH_SENSOR"]

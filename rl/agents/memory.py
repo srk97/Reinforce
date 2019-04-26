@@ -244,7 +244,8 @@ class RolloutMemory:
           np.array([s.last_point_goal for s in samples]))
       point_goals = self.reshape(np.array([s.point_goal for s in samples]))
 
-      return last_states, last_recurrent_states, actions, rewards, done, states, recurrent_states, last_point_goals, point_goals
+      return last_states, last_recurrent_states, actions, rewards[0], done[
+          0], states, recurrent_states, last_point_goals, point_goals
 
     return last_states, actions, rewards, done, states
 
