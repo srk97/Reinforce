@@ -53,7 +53,7 @@ class GibsonPPOActor(Model):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
       if masks is None:
         states = tf.expand_dims(states, axis=0)
-        hidden_states = tf.expand_dims(hidden_states, axis=0)
+        #hidden_states = tf.expand_dims(hidden_states, axis=0)
         rnn_out, hidden_states = self.layer1(
             states, initial_state=hidden_states)
       else:

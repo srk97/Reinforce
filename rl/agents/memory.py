@@ -231,7 +231,7 @@ class RolloutMemory:
 
     last_states = self.reshape(np.array([s.last_state for s in samples]))
     actions = self.reshape(np.array([s.action for s in samples]))
-    rewards = self.reshape(np.array([s.reward for s in samples]))
+    rewards = np.array([s.reward for s in samples])
     done = self.reshape(np.array([s.done for s in samples]))
     states = self.reshape(np.array([s.state for s in samples]))
 
@@ -255,3 +255,4 @@ class RolloutMemory:
 
   def clear(self):
     self.memory.clear()
+    self.memory = []

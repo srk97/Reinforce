@@ -73,9 +73,9 @@ class Gibson_PPO(Agent):
                                states)
     self._log_rewards(rewards)
 
-    if done[-1]:
-      self._log_results(reset_episode=True)
-      self.update()
+
+    self._log_results(reset_episode=True)
+    self.update()
 
   def build(self):
 
@@ -160,7 +160,7 @@ class Gibson_PPO(Agent):
       self._sess.run(replace_op)
 
       if type(self._env).__name__ == 'NavRLEnv':
-        _, _, states, recurrent_states, actions, rewards, self.masks, _, _, point_goals, _ = self._memory.sample(
+        states, recurrent_states, actions, rewards, self.masks, _, _, point_goals, _ = self._memory.sample(
         )
         print("Update shapes:")
         print("\tstates: ", states.shape)
