@@ -89,7 +89,6 @@ class Gibson_PPO(Agent):
     self.rewards = tf.placeholder(tf.float32, [None], name="rewards")
     self.actions = tf.placeholder(
         tf.int32, [None, self._hparams.num_actions], name="actions")
-    self.masks = tf.placeholder(tf.float32, shape=[None], name="masks")
 
     processed_states = self.process_states(self.states)
 
