@@ -113,6 +113,7 @@ class Gibson_PPO(Agent):
     if type(self._env).__name__ == 'NavRLEnv':
       print(tf.shape(processed_states), tf.shape(self.point_goal))
       actor_states = tf.concat([processed_states, self.point_goal], axis=1)
+      print(self.masks)
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states, self.masks)
       _, _, self.oldpi_logits = self._old_policy(

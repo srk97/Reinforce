@@ -18,6 +18,7 @@ class Agent():
     self._episode_rewards = []
     self._action_function = get_action_function(self._hparams.action_function)
     self._state_processor_vars = None
+    self.masks = None
     if hparams.pixel_input:
       self._state_processor = get_models(hparams, names=hparams.state_processor)
     self._grad_function = get_gradient_function(self._hparams.grad_function)
