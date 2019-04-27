@@ -7,7 +7,7 @@ def ppo():
   hps = default()
   hps.state_processor = "GibsonPixelProcessor"
   hps.models = {"actor": "GibsonPPOActor", "critic": "GibsonPPOCritic"}
-  hps.agent = "PPO"
+  hps.agent = "Gibson_PPO"
   hps.clip_grad_norm = True
   hps.n_steps = 128
   hps.max_grad_norm = 0.5

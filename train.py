@@ -125,51 +125,49 @@ def _run(FLAGS):
         done_ = False
         recurrent_state = np.zeros((512,))
 
-        # run until game is finished
-        while not done_:
+        last_states = []
+        actions = []
+        rewards = []
+        done = []
+        states = []
 
-          last_states = []
-          actions = []
-          rewards = []
-          done = []
-          states = []
+        last_recurrent_states = None
+        recurrent_states = None
 
-          last_recurrent_states = None
-          recurrent_states = None
+        if type(env).__name__ == 'NavRLEnv':
+          last_recurrent_states = []
+          recurrent_states = []
+        # run n steps
+        for _ in range(hparams.n_steps):
+          if hparams.render:
+            env.render()
 
+          last_state = state
           if type(env).__name__ == 'NavRLEnv':
-            last_recurrent_states = []
-            recurrent_states = []
-          # run n steps
-          for _ in range(hparams.n_steps):
-            if hparams.render:
-              env.render()
+            last_recurrent_state = recurrent_state
+            action, recurrent_state = agent.act(state,
+                                                last_recurrent_state[None, :])
+            last_recurrent_states.append(last_recurrent_state)
+            recurrent_states.append(recurrent_state)
+          else:
+            action = agent.act(state)
 
-            last_state = state
-            if type(env).__name__ == 'NavRLEnv':
-              last_recurrent_state = recurrent_state
-              action, recurrent_state = agent.act(state,
-                                                  last_recurrent_state[None, :])
-              last_recurrent_states.append(last_recurrent_state)
-              recurrent_states.append(recurrent_state)
-            else:
-              action = agent.act(state)
+          state, reward, done_, info = env.step(action)
+          #print(reward)
+          last_states.append(last_state)
+          actions.append(action)
+          rewards.append(reward)
+          done.append(done_)
+          states.append(state)
 
-            state, reward, done_, info = env.step(action)
-            #print(reward)
-            last_states.append(last_state)
-            actions.append(action)
-            rewards.append(reward)
-            done.append(done_)
-            states.append(state)
+          hparams.steps += 1
 
-            hparams.steps += 1
+          if done_:
+            done_ = False
+            state = env.reset()
 
-            if done_:
-              break
-
-          agent.observe(last_states, actions, rewards, done, states,
-                        last_recurrent_states, recurrent_states)
+        agent.observe(last_states, actions, rewards, done, states,
+                      last_recurrent_states, recurrent_states)
 
         hparams.episode += 1
         if hparams.episode % hparams.save_every == 0 or hparams.episode == max_episodes:

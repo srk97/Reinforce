@@ -19,6 +19,7 @@ class Gibson_PPO(Agent):
     super().__init__(sess, models, env, memory, hparams)
 
   def act(self, state, recurrent_state=None):
+    self.masks = None
     if type(self._env).__name__ == 'NavRLEnv':
       state_pixel = np.concatenate((state['rgb'], state['depth']),
                                    axis=2)[None, :]
@@ -80,14 +81,14 @@ class Gibson_PPO(Agent):
 
     if type(self._env).__name__ == 'NavRLEnv':
       self.point_goal = tf.placeholder(tf.float32, [None, 2], name='pointgoals')
-      self.recurrent_states = tf.placeholder(tf.float32,
-                                             [None, self._hparams.hidden_size],
-                                             name='recurrent_states')
-    self.states = tf.placeholder(tf.float32, [None] + self._hparams.state_shape,
-                                 name="states")
+      self.recurrent_states = tf.placeholder(
+          tf.float32, [None, self._hparams.hidden_size],
+          name='recurrent_states')
+    self.states = tf.placeholder(
+        tf.float32, [None] + self._hparams.state_shape, name="states")
     self.rewards = tf.placeholder(tf.float32, [None], name="rewards")
-    self.actions = tf.placeholder(tf.int32, [None, self._hparams.num_actions],
-                                  name="actions")
+    self.actions = tf.placeholder(
+        tf.int32, [None, self._hparams.num_actions], name="actions")
     self.masks = tf.placeholder(tf.float32, shape=[None], name="masks")
 
     processed_states = self.process_states(self.states)
@@ -114,10 +115,9 @@ class Gibson_PPO(Agent):
       print(tf.shape(processed_states), tf.shape(self.point_goal))
       actor_states = tf.concat([processed_states, self.point_goal], axis=1)
       _, self.computed_recurrent_states, self.logits = self._actor(
-          actor_states, self.recurrent_states)
-      _, _, self.oldpi_logits = self._old_policy(actor_states,
-                                                 self.recurrent_states,
-                                                 scope="old_policy")
+          actor_states, self.recurrent_states, self.masks)
+      _, _, self.oldpi_logits = self._old_policy(
+          actor_states, self.recurrent_states, self.masks scope="old_policy")
     else:
       actor_states = processed_states
       self.logits = self._actor(processed_states)
@@ -160,7 +160,7 @@ class Gibson_PPO(Agent):
       self._sess.run(replace_op)
 
       if type(self._env).__name__ == 'NavRLEnv':
-        _, _, states, recurrent_states, actions, rewards, _, _, _, point_goals, _ = self._memory.sample(
+        _, _, states, recurrent_states, actions, rewards, self.masks, _, _, point_goals, _ = self._memory.sample(
         )
         print("Update shapes:")
         print("\tstates: ", states.shape)
