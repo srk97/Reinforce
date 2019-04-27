@@ -117,7 +117,7 @@ class Gibson_PPO(Agent):
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states, self.masks)
       _, _, self.oldpi_logits = self._old_policy(
-          actor_states, self.recurrent_states, self.masks scope="old_policy")
+          actor_states, self.recurrent_states, self.masks, scope="old_policy")
     else:
       actor_states = processed_states
       self.logits = self._actor(processed_states)
