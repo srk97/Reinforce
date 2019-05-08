@@ -33,14 +33,11 @@ class Logger(object):
 
   def __init__(self, hparams):
     self._hparams = hparams
-    logdir = hparams.run_output_dir
-    if not hparams.training:
-      lodir = os.path.join(logdir, 'eval')
-    self._writer = tf.summary.FileWriter(logdir)
+    self._writer = tf.summary.FileWriter(hparams.run_output_dir)
 
   def log_scalar(self, tag, value):
     summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
-    self._writer.add_summary(summary, self._hparams.episode)
+    self._writer.add_summary(summary, self._hparams.global_step)
 
   def log_histogram(self, tag, values, bins=1000):
     """ https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514 """
@@ -63,7 +60,7 @@ class Logger(object):
       hist.bucket.append(c)
 
     summary = tf.Summary(value=[tf.Summary.Value(tag=tag, histo=hist)])
-    self.writer.add_summary(summary, self._hparams.episode)
+    self.writer.add_summary(summary, self._hparams.global_step)
     self.writer.flush()
 
   def log_graph(self):

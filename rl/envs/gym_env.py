@@ -1,6 +1,7 @@
 import os
 import gym
 import numpy as np
+from gym import wrappers
 from .env import Environment
 from .registry import register_env, get_reward_augmentation
 
@@ -12,25 +13,24 @@ class GymEnv(Environment):
   def __init__(self, hparams):
     super().__init__(hparams)
 
-    video_callable = False
-    if hparams.record_video:
-      # save game play video every hparams.save_every
-      video_callable = lambda count: count % hparams.save_every == 0
-
-    directory = hparams.run_output_dir
-    if not hparams.training:
-      directory = os.path.join(directory, 'eval')
-
     try:
-      self._env = gym.wrappers.Monitor(
-          gym.make(hparams.env),
+      self._env = gym.make(hparams.env)
+    except gym.error.Error:
+      print("Environment with name %s cannot not be found. "
+            "Install Atari env with pip install 'gym[atari]'" % hparams.env)
+      exit()
+
+    if hparams.record_video:
+      directory = hparams.run_output_dir
+      if not hparams.training:
+        directory = os.path.join(directory, 'eval')
+      # save game play video every hparams.save_every
+      self._env = wrappers.Monitor(
+          self._env,
           directory=os.path.join(directory, 'video'),
-          video_callable=video_callable,
+          video_callable=lambda count: count % hparams.save_every == 0,
           force=True,
           mode='training' if hparams.training else 'evaluation')
-    except gym.error.Error:
-      raise Exception(
-          "Environment with name %s cannot not be found" % hparams.env)
 
     self.seed(self._hparams.seed)
     self._observation_space = self._env.observation_space

@@ -1,6 +1,9 @@
 import os
+import time
 import pickle
 import tensorflow as tf
+
+from .logger import log_scalar
 
 
 class Checkpoint():
@@ -13,33 +16,42 @@ class Checkpoint():
   }
   """
 
-  def __init__(self, sess, hparams, agent):
+  def __init__(self, sess, hparams):
     self._sess = sess
     self._hparams = hparams
-    self._agent = agent
-    # list of checkpoints
     self._checkpoints = []
     self._run_dir = hparams.run_output_dir
     self._pickle = os.path.join(self._run_dir, 'checkpoint.pickle')
-    self._saver = tf.train.Saver()
+    self._saver = tf.train.Saver(max_to_keep=3)
+    self._last_record_time = -1
+    self._last_record_step = -1
 
   def save(self):
     if not self._hparams.training:
       return
 
     save_path = os.path.join(self._run_dir,
-                             'model.ckpt-%d' % self._hparams.episode)
+                             'model.ckpt-%d' % self._hparams.global_step)
     path_prefix = self._saver.save(self._sess, save_path)
 
     self._checkpoints.append(path_prefix)
 
     with open(self._pickle, "wb") as file:
-      pickle.dump({
-          'checkpoints': self._checkpoints,
-          path_prefix: (self._hparams, self._agent.get_all_rewards())
-      }, file)
+      pickle.dump(
+          {
+              'checkpoints': self._checkpoints,
+              path_prefix: (self._hparams)
+          }, file)
 
-    print("saved checkpoint at %s" % path_prefix)
+    print("saved checkpoint: %s" % path_prefix)
+
+    # log fps
+    if self._last_record_step > 0 and self._last_record_time > 0:
+      fps = round((self._hparams.total_step - self._last_record_step) /
+                  (time.time() - self._last_record_time), 2)
+      log_scalar('fps', fps)
+    self._last_record_time = time.time()
+    self._last_record_step = self._hparams.total_step
 
   def restore(self):
     """ Restore from latest checkpoint
@@ -59,14 +71,27 @@ class Checkpoint():
       checkpoints = pickle.load(file)
 
       self._checkpoints = checkpoints['checkpoints']
-      (checkpoint, all_rewards) = checkpoints[latest_checkpoint]
+      previous_hparams = checkpoints[latest_checkpoint]
+
+      # check the checkpoint is compatilbe with current hparams
+      if previous_hparams.agent != self._hparams.agent:
+        print("incompatible agent from checkpoint %s" % latest_checkpoint)
+        exit()
+      if (self._hparams.training and
+          previous_hparams.num_workers != self._hparams.num_workers):
+        print("number of workers in checkpoint %s is not equal" %
+              latest_checkpoint)
+        exit()
 
       # restore hparams
-      self._hparams.steps = checkpoint.steps
-      if self._hparams.training:
-        self._hparams.episode = checkpoint.episode
+      self._hparams.total_step = previous_hparams.total_step
+      self._hparams.global_step = previous_hparams.global_step
+      self._hparams.local_step = previous_hparams.local_step
+      self._hparams.local_episode = previous_hparams.local_episode
+      if hasattr(previous_hparams, "epsilon"):
+        self._hparams.epsilon = previous_hparams.epsilon
+        self._hparams.min_epsilon = previous_hparams.min_epsilon
 
-      # restore rewards
-      self._agent.set_all_rewards(all_rewards)
+    print("\nrestored from checkpoint %s\n" % latest_checkpoint)
 
     return True

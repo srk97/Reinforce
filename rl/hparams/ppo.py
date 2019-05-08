@@ -5,23 +5,21 @@ from .registry import register
 @register
 def ppo():
   hps = default()
-  hps.models = {'actor': "PPOActor", 'critic': "PPOCritic"}
+  hps.memory = "SimpleMemory"
+  hps.models = ["PPOActor", "PPOCritic"]
   hps.agent = "PPO"
-  hps.normalize_reward = False
-  hps.clip_grad_norm = True
-  hps.actor_lr = 0.0001
-  hps.critic_lr = 0.0002
+  hps.lr = {'actor_lr': 0.0001, 'critic_lr': 0.0002}
+  hps.lr_decay = {'actor_lr': 'no_decay', 'critic_lr': 'no_decay'}
   hps.batch_size = 32
+  hps.num_steps = 128
+  hps.num_epochs = 10
   hps.hidden_size = 100
   hps.gamma = 0.9
-  hps.max_grad_norm = 0.5
   hps.memory_size = 50000
   hps.action_function = "uniform_random_action"
   hps.grad_function = "ppo"
-  hps.num_actor_steps = 10
-  hps.num_critic_steps = 10
+  hps.normalize_reward = False
   hps.clipping_coef = 0.2
-  hps.mode = "train"
 
   return hps
 
@@ -30,6 +28,7 @@ def ppo():
 def ppo_cartpole():
   hps = ppo()
   hps.env = "CartPole-v1"
+  hps.gamma = 0.99
   return hps
 
 

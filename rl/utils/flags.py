@@ -1,9 +1,9 @@
 import os
 import time
 import getpass
-import subprocess
 import tensorflow as tf
 
+from .utils import ModeKeys
 from .sys import get_sys
 
 
@@ -31,18 +31,31 @@ def validate_flags(FLAGS):
 
 
 def update_hparams(FLAGS, hparams):
-  hparams.train_episodes = FLAGS.train_episodes
-  hparams.eval_episodes = FLAGS.eval_episodes
-  hparams.copies = FLAGS.copies
-  hparams.render = FLAGS.render
-  hparams.record_video = FLAGS.record_video
-  hparams.save_every = FLAGS.save_every
-  hparams.sys = FLAGS.sys
+  # set hparams from FLAGS attribtues
+  for attr in dir(FLAGS):
+    if attr not in [
+        'hparams', 'hparams_override', 'h', 'help', 'helpshort', 'env'
+    ]:
+      setattr(hparams, attr, getattr(FLAGS, attr))
+
   hparams.env = FLAGS.env or hparams.env
-  hparams.training = FLAGS.training
   if hparams.env is None:
     print("please specify training environment")
     exit()
+
+  # check if agent support multi workers
+  if hparams.agent not in ['DQN', 'DDPG', 'PPO'] and hparams.num_workers > 1:
+    print("%s does not support multiple workers." % hparams.agent)
+    exit()
+
+  # set the mode for each thread to training mode
+  hparams.mode = [ModeKeys.TRAIN] * hparams.num_workers
+
+  # number of step for each thread
+  hparams.local_step = [0] * hparams.num_workers
+
+  # number of episode for each thread
+  hparams.local_episode = [0] * hparams.num_workers
 
   sys = get_sys(FLAGS.sys)
   hparams.output_dir = FLAGS.output_dir or os.path.join(

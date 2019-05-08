@@ -1,6 +1,5 @@
-__all__ = ['algos', 'agent', 'memory', 'registry']
+__all__ = ['algos', 'agent', 'registry']
 
 from .algos import *
 from .agent import *
-from .memory import *
 from .registry import *

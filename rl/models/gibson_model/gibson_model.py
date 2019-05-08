@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 from ..model import Model
 from ..registry import register
@@ -48,13 +49,29 @@ class GibsonPPOActor(Model):
         units=hparams.hidden_size, return_state=True)
     self.layer2 = tf.keras.layers.Dense(hparams.num_actions)
 
-  def call(self, states, hidden_states, scope="GibsonPPOActor"):
+  def call(self, states, hidden_states, masks=None, scope="GibsonPPOActor"):
     with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-      states = tf.expand_dims(states, axis=0)
-      rnn_out, new_hidden = self.layer1(states, initial_state=hidden_states)
+      if masks is None:
+        states = tf.expand_dims(states, axis=0)
+        #hidden_states = tf.expand_dims(hidden_states, axis=0)
+        rnn_out, hidden_states = self.layer1(
+            states, initial_state=hidden_states)
+      else:
+        done_ = np.where(masks == True)[0]
+        indices = np.concatenate(([0], done_, [128]))
+        out = []
+        for i in range(len(indices) - 1):
+          start_idx = indices[i]
+          end_idx = indices[i + 1]
+          rnn_input = tf.expand_dims(states[start_idx:end_idx], axis=0)
+          rnn_out, hidden_states = self.layer1(
+              rnn_input, initial_state=hidden_states * masks[start_idx])
+          out.append(rnn_out)
+        rnn_out = tf.concat(out, axis=1)
+
       out = self.layer2(rnn_out)
 
-      return rnn_out, new_hidden, out
+      return rnn_out, hidden_states, out
 
 
 @register

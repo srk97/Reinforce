@@ -9,19 +9,10 @@ def register(fn):
   return fn
 
 
-def get_models(hparams, names=None):
+def get_model(hparams, register, name):
   '''
-  names: a string or a list of models to be fetched
-  scope_name: Scope within which the model is defined
+  register: string, the register name of the model
+  name: string, the name scope of the model
   '''
 
-  if isinstance(names, str):
-    return _MODELS[names](hparams)
-  elif isinstance(names, list):
-    models = {name: _MODELS[name](hparams) for name in names}
-    return models
-  elif len(hparams.models) == 1:
-    return _MODELS[hparams.models[0]](hparams)
-  else:
-    print(_MODELS)
-    return {name: _MODELS[hparams.models[name]](hparams) for name in hparams.models.keys()}
+  return _MODELS[register](hparams, name)

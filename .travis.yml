@@ -8,5 +8,5 @@ install:
 
 # command to run tests
 script:
-  - python3 train.py --sys=local --hparams=ppo_cartpole --train_episodes=10 --render=False
+  - python3 train.py --sys=local --hparams=ppo_cartpole --train_steps=100 --render=False
   
