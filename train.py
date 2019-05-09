@@ -32,6 +32,7 @@ def init_flags():
   tf.flags.DEFINE_integer("copies", 1,
                           "Number of independent training/testing runs to do.")
   tf.flags.DEFINE_boolean("render", False, "Render game play")
+  tf.flags.DEFINE_boolean("record_video", False, "Record game play")
   tf.flags.DEFINE_integer("num_workers", 1, "number of workers")
 
 
