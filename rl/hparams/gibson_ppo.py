@@ -9,8 +9,8 @@ def ppo():
   hps.models = ["GibsonPPOActor", "GibsonPPOCritic"]
   hps.agent = "Gibson_PPO"
   hps.clip_grad_norm = True
-  hps.num_steps = 128
-  hps.batch_size = 128
+  hps.num_steps = 10
+  hps.batch_size = 10
   hps.max_grad_norm = 0.5
   hps.value_loss_coef = 0.5
   hps.lr = {'actor_lr': 2.5e-4, 'critic_lr': 2.5e-4}
