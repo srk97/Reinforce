@@ -20,9 +20,9 @@ class Gibson_PPO(Agent):
     self.target_actor = get_model(hparams,
                                   register="GibsonPPOActor",
                                   name="target_actor")
-    self.build()                              
+    self.build()
 
-  def act(self, state, recurrent_state=None):
+  def act(self, state, worker_id, recurrent_state=None):
     self.masks = None
     if self._hparams.env == 'gibson_env':
       state_pixel = np.concatenate((state['rgb'], state['depth']),
@@ -118,8 +118,8 @@ class Gibson_PPO(Agent):
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states, self.masks)
       _, _, self.target_logits = self.target_actor(actor_states,
-                                                  self.recurrent_states,
-                                                  self.masks)
+                                                   self.recurrent_states,
+                                                   self.masks)
     else:
       actor_states = processed_states
       self.logits = self._actor(processed_states)
