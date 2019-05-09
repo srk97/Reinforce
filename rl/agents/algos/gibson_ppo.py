@@ -13,17 +13,17 @@ from ...models.registry import get_model
 class Gibson_PPO(Agent):
   """ Proximal Policy Optimization """
 
-  def __init__(self, sess, models, env, memory, hparams):
+  def __init__(self, sess, hparams):
+    super().__init__(sess, hparams)
     self._actor = get_model(hparams, register="PPOActor", name="actor")
     self._critic = get_model(hparams, register="PPOCritic", name="critic")
     self.target_actor = get_model(hparams,
                                   register="PPOActor",
                                   name="target_actor")
-    super().__init__(sess, models, env, memory, hparams)
 
   def act(self, state, recurrent_state=None):
     self.masks = None
-    if type(self._env).__name__ == 'NavRLEnv':
+    if self._hparams.env == 'gibson_env':
       state_pixel = np.concatenate((state['rgb'], state['depth']),
                                    axis=2)[None, :]
       point_goal = state['pointgoal'][None, :]
@@ -89,7 +89,7 @@ class Gibson_PPO(Agent):
 
   def build(self):
 
-    if type(self._env).__name__ == 'NavRLEnv':
+    if self._hparams.env == 'gibson_env':
       self.point_goal = tf.placeholder(tf.float32, [None, 2], name='pointgoals')
       self.recurrent_states = tf.placeholder(tf.float32,
                                              [None, self._hparams.hidden_size],
@@ -112,7 +112,7 @@ class Gibson_PPO(Agent):
 
     states_critic = processed_states
 
-    if type(self._env).__name__ == 'NavRLEnv':
+    if self._hparams.env == 'gibson_env':
       actor_states = tf.concat([processed_states, self.point_goal], axis=1)
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states, self.masks)
