@@ -13,8 +13,8 @@ def ppo():
   hps.batch_size = 128
   hps.max_grad_norm = 0.5
   hps.value_loss_coef = 0.5
-  hps.actor_lr = 2.5e-4
-  hps.critic_lr = 2.5e-4
+  hps.lr = {'actor_lr': 2.5e-4, 'critic_lr': 2.5e-4}
+  hps.lr_decay = {'actor_lr': 'no_decay', 'critic_lr': 'no_decay'}
   hps.hidden_size = 512
   hps.num_epochs = 10
   hps.gamma = 0.99

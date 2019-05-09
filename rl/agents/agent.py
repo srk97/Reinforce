@@ -14,7 +14,7 @@ class Agent():
     self._memory = [get_memory(hparams, i) for i in range(hparams.num_workers)]
 
     self._action_function = get_action_function(self._hparams.action_function)
-
+    self.masks = None
     self._state_processor_vars = None
 
     if hparams.pixel_input:
