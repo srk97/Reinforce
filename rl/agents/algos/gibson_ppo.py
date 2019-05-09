@@ -162,7 +162,7 @@ class Gibson_PPO(Agent):
         memory.get_sequence('last_state'),
         memory.get_sequence('state', indices=[-1]),
     ))
-
+    '''
     recurrent_states = np.concatenate(
         memory.get_sequence('last_recurrent_state'),
         memory.get_sequence('recurrent_state'),
@@ -170,6 +170,7 @@ class Gibson_PPO(Agent):
     pointgoals = np.concatenate(memory.get_sequence('last_pointgoal'),
                                 memory.get_sequence('pointgoal'),
                                 indices=[-1])
+    '''                            
     rewards = memory.get_sequence('reward')
     dones = memory.get_sequence('done')
     self.masks = dones
