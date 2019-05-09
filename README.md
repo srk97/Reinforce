@@ -115,6 +115,7 @@ rl/
 ## Acknowledgments
 
 - [for.ai](https://for.ai) 
+- [Piotr Kozakowski](https://github.com/koz4k)
 - Adapted from [this repo](https://github.com/for-ai/rl)
 
 ## References
