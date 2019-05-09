@@ -4,7 +4,7 @@ Code taken from habitat-api/baselines/train_ppo.py
 '''
 
 import random
-
+import os
 import numpy as np
 
 import habitat
@@ -31,6 +31,8 @@ while True:
   plt.close()
 
 '''
+
+dirname = os.path.dirname(__file__)
 
 
 class NavRLEnv(habitat.RLEnv):
@@ -106,13 +108,11 @@ class NavRLEnv(habitat.RLEnv):
 
 @register_env
 def gibson_env(hparams):
-  basic_config = cfg_env(
-      config_file=hparams.task_config,
-      config_dir='/home/paperspace/Habitat-TF/rl/envs/configs')
+  basic_config = cfg_env(config_file=hparams.task_config,
+                         config_dir=os.path.join(dirname, 'configs'))
   scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
-  config_env = cfg_env(
-      config_file=hparams.task_config,
-      config_dir='/home/paperspace/Habitat-TF/rl/envs/configs')
+  config_env = cfg_env(config_file=hparams.task_config,
+                       config_dir=os.path.join(dirname, 'configs'))
   config_env.defrost()
 
   if len(scenes) > 0:
@@ -130,7 +130,8 @@ def gibson_env(hparams):
   config_env.SIMULATOR.SCENE = dataset.episodes[0].scene_id
   config_env.freeze()
 
-  env = NavRLEnv(
-      config_env=config_env, config_baseline=config_baseline, dataset=dataset)
+  env = NavRLEnv(config_env=config_env,
+                 config_baseline=config_baseline,
+                 dataset=dataset)
 
   return env

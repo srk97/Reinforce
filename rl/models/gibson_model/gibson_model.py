@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from tensorflow import AUTO_REUSE as reuse
 
 from ..model import Model
 from ..registry import register
@@ -8,8 +9,8 @@ from ..registry import register
 @register
 class GibsonPixelProcessor(Model):
 
-  def __init__(self, hparams):
-    super().__init__(hparams)
+  def __init__(self, hparams, name="GibsonPixelProcessor"):
+    super().__init__(hparams, name)
     self.layer1 = tf.layers.Conv2D(
         filters=32,
         kernel_size=([hparams.kernel_sizes[0]] * 2),
@@ -29,8 +30,8 @@ class GibsonPixelProcessor(Model):
     self.layer4 = tf.layers.Flatten()
     self.layer5 = tf.layers.Dense(hparams.hidden_size, activation=tf.nn.relu)
 
-  def call(self, states, scope="GibsonPixelProcessor"):
-    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+  def call(self, states):
+    with tf.variable_scope(self.name, reuse=reuse):
       layer = self.layer1(states)
       layer = self.layer2(layer)
       layer = self.layer3(layer)
@@ -43,14 +44,14 @@ class GibsonPixelProcessor(Model):
 @register
 class GibsonPPOActor(Model):
 
-  def __init__(self, hparams):
-    super().__init__(hparams)
+  def __init__(self, hparams, name="GibsonPPOActor"):
+    super().__init__(hparams, name)
     self.layer1 = tf.keras.layers.GRU(
         units=hparams.hidden_size, return_state=True)
     self.layer2 = tf.keras.layers.Dense(hparams.num_actions)
 
-  def call(self, states, hidden_states, masks=None, scope="GibsonPPOActor"):
-    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+  def call(self, states, hidden_states, masks=None):
+    with tf.variable_scope(self.name, reuse=reuse):
       if masks is None:
         states = tf.expand_dims(states, axis=0)
         #hidden_states = tf.expand_dims(hidden_states, axis=0)
@@ -77,10 +78,10 @@ class GibsonPPOActor(Model):
 @register
 class GibsonPPOCritic(Model):
 
-  def __init__(self, hparams):
-    super().__init__(hparams)
+  def __init__(self, hparams, name="GibsonPPOCritic"):
+    super().__init__(hparams, name)
     self.layer1 = tf.layers.Dense(1)
 
-  def call(self, states, scope="GibsonPPOCritic"):
-    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+  def call(self, states):
+    with tf.variable_scope(self.name, reuse=reuse):
       return self.layer1(states)

@@ -9,12 +9,12 @@ def ppo():
   hps.models = ["GibsonPPOActor", "GibsonPPOCritic"]
   hps.agent = "Gibson_PPO"
   hps.clip_grad_norm = True
-  hps.num_steps = 128
-  hps.batch_size = 128
+  hps.num_steps = 10
+  hps.batch_size = 10
   hps.max_grad_norm = 0.5
   hps.value_loss_coef = 0.5
-  hps.actor_lr = 2.5e-4
-  hps.critic_lr = 2.5e-4
+  hps.lr = {'actor_lr': 2.5e-4, 'critic_lr': 2.5e-4}
+  hps.lr_decay = {'actor_lr': 'no_decay', 'critic_lr': 'no_decay'}
   hps.hidden_size = 512
   hps.num_epochs = 10
   hps.gamma = 0.99
@@ -36,7 +36,7 @@ def ppo():
 
 
 @register
-def ppo_sample():
+def ppo_gibson():
   hps = ppo()
   hps.env = "gibson_env"
   return hps

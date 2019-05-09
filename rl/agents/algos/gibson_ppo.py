@@ -15,13 +15,14 @@ class Gibson_PPO(Agent):
 
   def __init__(self, sess, hparams):
     super().__init__(sess, hparams)
-    self._actor = get_model(hparams, register="PPOActor", name="actor")
-    self._critic = get_model(hparams, register="PPOCritic", name="critic")
+    self._actor = get_model(hparams, register="GibsonPPOActor", name="actor")
+    self._critic = get_model(hparams, register="GibsonPPOCritic", name="critic")
     self.target_actor = get_model(hparams,
-                                  register="PPOActor",
+                                  register="GibsonPPOActor",
                                   name="target_actor")
+    self.build()
 
-  def act(self, state, recurrent_state=None):
+  def act(self, state, worker_id, recurrent_state=None):
     self.masks = None
     if self._hparams.env == 'gibson_env':
       state_pixel = np.concatenate((state['rgb'], state['depth']),
@@ -111,19 +112,18 @@ class Gibson_PPO(Agent):
       self.cnn_vars = None
 
     states_critic = processed_states
-
+    print(self._hparams.env)
     if self._hparams.env == 'gibson_env':
       actor_states = tf.concat([processed_states, self.point_goal], axis=1)
       _, self.computed_recurrent_states, self.logits = self._actor(
           actor_states, self.recurrent_states, self.masks)
-      _, _, self.oldpi_logits = self.target_actor(actor_states,
-                                                  self.recurrent_states,
-                                                  self.masks)
+      _, _, self.target_logits = self.target_actor(actor_states,
+                                                   self.recurrent_states,
+                                                   self.masks)
     else:
       actor_states = processed_states
-
-    self.logits = self._actor(processed_states)
-    self.target_logits = self.target_actor(actor_states, scope="old_policy")
+      self.logits = self._actor(processed_states)
+      self.target_logits = self.target_actor(actor_states, scope="old_policy")
 
     self.probs = tf.nn.softmax(self.logits, -1)
 
@@ -163,13 +163,6 @@ class Gibson_PPO(Agent):
         memory.get_sequence('state', indices=[-1]),
     ))
 
-    recurrent_states = np.concatenate(
-        memory.get_sequence('last_recurrent_state'),
-        memory.get_sequence('recurrent_state'),
-        indices=[-1])
-    pointgoals = np.concatenate(memory.get_sequence('last_pointgoal'),
-                                memory.get_sequence('pointgoal'),
-                                indices=[-1])
     rewards = memory.get_sequence('reward')
     dones = memory.get_sequence('done')
     self.masks = dones
