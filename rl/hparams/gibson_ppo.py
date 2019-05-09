@@ -36,7 +36,7 @@ def ppo():
 
 
 @register
-def ppo_sample():
+def ppo_gibson():
   hps = ppo()
   hps.env = "gibson_env"
   return hps
